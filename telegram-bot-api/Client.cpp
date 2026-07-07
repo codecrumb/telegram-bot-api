@@ -9279,7 +9279,7 @@ void Client::on_update_file(object_ptr<td_api::file> file) {
   if (!is_file_being_downloaded(file_id)) {
     return;
   }
-  if (!parameters_->local_mode_ && file->local_->downloaded_size_ > MAX_DOWNLOAD_FILE_SIZE) {
+  if (!parameters_->local_mode_ && file->local_->downloaded_size_ > parameters_->max_download_file_size_) {
     if (file->local_->is_downloading_active_) {
       send_request(make_object<td_api::cancelDownloadFile>(file_id, false),
                    td::make_unique<TdOnCancelDownloadFileCallback>());
@@ -16547,7 +16547,7 @@ td::Status Client::process_get_file_query(PromisedQueryPtr &query) {
 
 void Client::do_get_file(object_ptr<td_api::file> file, PromisedQueryPtr query) {
   if (!parameters_->local_mode_ &&
-      td::max(file->expected_size_, file->local_->downloaded_size_) > MAX_DOWNLOAD_FILE_SIZE) {  // speculative check
+      td::max(file->expected_size_, file->local_->downloaded_size_) > parameters_->max_download_file_size_) {  // speculative check
     return fail_query(400, "Bad Request: file is too big", std::move(query));
   }
 
@@ -17416,7 +17416,7 @@ void Client::json_store_file(td::JsonObjectScope &object, const td_api::file *fi
       }
     } else {
       td::Slice relative_path = td::PathView::relative(file->local_->path_, dir_, true);
-      if (!relative_path.empty() && file->local_->downloaded_size_ <= MAX_DOWNLOAD_FILE_SIZE) {
+      if (!relative_path.empty() && file->local_->downloaded_size_ <= parameters_->max_download_file_size_) {
         object("file_path", relative_path);
       }
     }

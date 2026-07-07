@@ -203,6 +203,12 @@ int main(int argc, char *argv[]) {
     }
     return td::string();
   }(std::getenv("TELEGRAM_API_HASH"));
+  if (const char *env_val = std::getenv("TELEGRAM_MAX_DOWNLOAD_FILE_SIZE")) {
+    auto parsed = td::to_integer_safe<td::int64>(td::Slice(env_val));
+    if (parsed.is_ok() && parsed.ok() > 0) {
+      parameters->max_download_file_size_ = parsed.ok();
+    }
+  }
 
   options.set_usage(td::Slice(argv[0]), "--api-id=<arg> --api-hash=<arg> [--local] [OPTION]...");
   options.set_description("Telegram Bot API server");
