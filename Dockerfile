@@ -24,10 +24,13 @@ FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y \
     libssl3 \
     zlib1g \
+    libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/build/telegram-bot-api /usr/local/bin/telegram-bot-api
 
+WORKDIR /data
+
 EXPOSE 8081
 
-ENTRYPOINT ["telegram-bot-api"]
+ENTRYPOINT ["telegram-bot-api", "--dir", "/data"]
