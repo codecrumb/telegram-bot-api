@@ -13,6 +13,8 @@ WORKDIR /app
 
 COPY . .
 
+RUN git submodule update --init --recursive
+
 RUN mkdir build && cd build && \
     cmake .. && \
     cmake --build . --target telegram-bot-api
