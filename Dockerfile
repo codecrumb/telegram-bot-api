@@ -33,4 +33,10 @@ WORKDIR /data
 
 EXPOSE 8081
 
-ENTRYPOINT ["telegram-bot-api", "--dir", "/data"]
+RUN echo '#!/bin/sh' > /entrypoint.sh && \
+    echo 'echo "Environment variables:"' >> /entrypoint.sh && \
+    echo 'env | grep TELEGRAM || echo "No TELEGRAM vars found"' >> /entrypoint.sh && \
+    echo 'exec telegram-bot-api --dir /data' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
