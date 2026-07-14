@@ -28,6 +28,7 @@
 #include "td/utils/misc.h"
 #include "td/utils/Parser.h"
 #include "td/utils/port/IPAddress.h"
+#include "td/utils/port/path.h"
 #include "td/utils/port/Stat.h"
 #include "td/utils/port/thread.h"
 #include "td/utils/Slice.h"
@@ -566,6 +567,32 @@ void ClientManager::timeout_expired() {
     is_global_flood_control_enabled_ = true;
     global_flood_control_.add_limit(60, 1000);        // 1000 in a minute
     global_flood_control_.add_limit(60 * 60, 10000);  // 10000 in an hour
+  }
+
+  if (parameters_->file_ttl_seconds_ > 0 && now > next_file_gc_time_) {
+    next_file_gc_time_ = now + 60.0;
+    auto files_dir = parameters_->working_directory_ + "files" + TD_DIR_SLASH;
+    auto ttl_nsec = static_cast<td::uint64>(parameters_->file_ttl_seconds_) * 1000000000ULL;
+    auto now_nsec = static_cast<td::uint64>(td::Time::now()) * 1000000000ULL;
+    td::int64 deleted_files = 0;
+    td::walk_path(files_dir, [&](td::CSlice path, td::WalkPath::Type type) {
+      if (type != td::WalkPath::Type::RegularFile) {
+        return td::WalkPath::Action::Continue;
+      }
+      auto r_stat = td::stat(path);
+      if (r_stat.is_error()) {
+        return td::WalkPath::Action::Continue;
+      }
+      if (now_nsec > r_stat.ok().mtime_nsec_ + ttl_nsec) {
+        if (td::unlink(path).is_ok()) {
+          deleted_files++;
+        }
+      }
+      return td::WalkPath::Action::Continue;
+    }).ignore();
+    if (deleted_files > 0) {
+      LOG(INFO) << "File GC deleted " << deleted_files << " expired files";
+    }
   }
 }
 

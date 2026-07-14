@@ -77,6 +77,7 @@ class ClientManager final : public td::Actor {
   double next_tqueue_gc_time_ = 0.0;
   td::int64 tqueue_deleted_events_ = 0;
   td::int64 last_tqueue_deleted_events_ = 0;
+  double next_file_gc_time_ = 0.0;
 
   static constexpr double WATCHDOG_TIMEOUT = 0.25;
 

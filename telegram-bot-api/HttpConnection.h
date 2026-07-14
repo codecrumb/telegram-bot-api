@@ -46,6 +46,10 @@ class HttpConnection final : public td::HttpInboundConnection::Callback {
 
   void send_response(int http_status_code, td::BufferSlice &&content, int retry_after);
 
+  void send_file_response(td::BufferSlice &&content, td::Slice content_type);
+
+  void serve_file(td::Slice path, td::ActorOwn<td::HttpInboundConnection> connection);
+
   void send_http_error(int http_status_code, td::Slice description);
 };
 

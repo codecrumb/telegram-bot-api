@@ -32,6 +32,8 @@ struct SharedData {
   std::atomic<size_t> query_list_size_{0};
   std::atomic<int> next_verbosity_level_{-1};
 
+  td::string working_directory_;
+
   // not thread-safe, must be used from a single thread
   td::ListNode query_list_;
   td::unique_ptr<td::KeyValueSyncInterface> webhook_db_;
@@ -110,6 +112,7 @@ struct ClientParameters {
   bool local_mode_ = false;
 
   td::int64 max_download_file_size_ = 20 << 20;
+  td::int64 file_ttl_seconds_ = 0;  // 0 = disabled
 
   td::int32 api_id_ = 0;
   td::string api_hash_;
