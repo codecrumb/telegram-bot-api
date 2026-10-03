@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y \
     libssl3 \
     zlib1g \
     libstdc++6 \
+    ca-certificates \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/build/telegram-bot-api /usr/local/bin/telegram-bot-api
