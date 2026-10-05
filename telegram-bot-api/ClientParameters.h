@@ -33,6 +33,7 @@ struct SharedData {
   std::atomic<int> next_verbosity_level_{-1};
 
   td::string working_directory_;
+  bool allow_colon_in_filenames_ = true;
 
   // not thread-safe, must be used from a single thread
   td::ListNode query_list_;

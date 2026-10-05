@@ -9,6 +9,7 @@
 #include "telegram-bot-api/ClientManager.h"
 #include "telegram-bot-api/Query.h"
 
+#include "td/net/HttpHeaderCreator.h"
 #include "td/net/HttpInboundConnection.h"
 #include "td/net/HttpQuery.h"
 
@@ -46,9 +47,9 @@ class HttpConnection final : public td::HttpInboundConnection::Callback {
 
   void send_response(int http_status_code, td::BufferSlice &&content, int retry_after);
 
-  void send_file_response(td::BufferSlice &&content, td::Slice content_type);
+  void send_raw_header(td::HttpHeaderCreator &hc);
 
-  void serve_file(td::Slice path, td::ActorOwn<td::HttpInboundConnection> connection);
+  void serve_file(td::Slice token, bool is_test_dc, td::Slice path, td::Slice range_header);
 
   void send_http_error(int http_status_code, td::Slice description);
 };

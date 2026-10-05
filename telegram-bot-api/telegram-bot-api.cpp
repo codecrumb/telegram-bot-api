@@ -453,6 +453,7 @@ int main(int argc, char *argv[]) {
 
   parameters->working_directory_ = std::move(working_directory);
   parameters->shared_data_->working_directory_ = parameters->working_directory_;
+  parameters->shared_data_->allow_colon_in_filenames_ = parameters->allow_colon_in_filenames_;
 
   if (parameters->default_max_webhook_connections_ <= 0) {
     parameters->default_max_webhook_connections_ = parameters->local_mode_ ? 100 : 40;

@@ -1,0 +1,119 @@
+diff --git a/tdnet/td/net/HttpConnectionBase.cpp b/tdnet/td/net/HttpConnectionBase.cpp
+index d16442d2a..b85acc75c 100644
+--- a/tdnet/td/net/HttpConnectionBase.cpp
++++ b/tdnet/td/net/HttpConnectionBase.cpp
+@@ -81,6 +81,55 @@ void HttpConnectionBase::write_error(Status error) {
+   loop();
+ }
+ 
++void HttpConnectionBase::write_file(FileFd file, int64 offset, int64 size) {
++  CHECK(state_ == State::Write);
++  CHECK(!is_file_active_);
++  file_ = std::move(file);
++  file_offset_ = offset;
++  file_left_ = size;
++  is_file_active_ = true;
++  live_event();
++  loop();
++}
++
++size_t HttpConnectionBase::get_pending_write_size() {
++  write_buffer_reader_.sync_with_writer();
++  return write_buffer_reader_.size() + fd_.ready_for_flush_write();
++}
++
++void HttpConnectionBase::pump_file() {
++  constexpr size_t MAX_PENDING_SIZE = 1 << 20;
++  constexpr size_t CHUNK_SIZE = 1 << 18;
++  while (file_left_ > 0 && get_pending_write_size() < MAX_PENDING_SIZE) {
++    auto to_read = static_cast<size_t>(min(static_cast<int64>(CHUNK_SIZE), file_left_));
++    BufferSlice chunk(to_read);
++    auto r_read = file_.pread(chunk.as_mutable_slice(), file_offset_);
++    if (r_read.is_error() || r_read.ok() == 0) {
++      LOG(WARNING) << "Failed to read a file to send: "
++                   << (r_read.is_error() ? r_read.error().to_string() : string("unexpected end of file"));
++      file_.close();
++      is_file_active_ = false;
++      file_left_ = 0;
++      state_ = State::Close;  // the response is already partially sent, so the connection can't be reused
++      return;
++    }
++    auto size = r_read.ok();
++    chunk.truncate(size);
++    file_offset_ += static_cast<int64>(size);
++    file_left_ -= static_cast<int64>(size);
++    write_buffer_.append(std::move(chunk));
++    live_event();
++  }
++  if (file_left_ == 0) {
++    file_.close();
++    is_file_active_ = false;
++    current_query_ = make_unique<HttpQuery>();
++    state_ = State::Read;
++    live_event();
++    yield();
++  }
++}
++
+ void HttpConnectionBase::timeout_expired() {
+   LOG(INFO) << "Idle timeout expired";
+ 
+@@ -150,6 +199,10 @@ void HttpConnectionBase::loop() {
+     }
+   }
+ 
++  if (is_file_active_ && state_ == State::Write) {
++    pump_file();
++  }
++
+   write_source_.wakeup();
+ 
+   if (can_write_local(fd_)) {
+@@ -162,6 +215,9 @@ void HttpConnectionBase::loop() {
+     if (close_after_write_ && !fd_.need_flush_write()) {
+       return stop();
+     }
++    if (is_file_active_ && get_pending_write_size() < (1 << 19)) {
++      yield();  // the socket drained, so send more of the file
++    }
+   }
+ 
+   Status pending_error;
+diff --git a/tdnet/td/net/HttpConnectionBase.h b/tdnet/td/net/HttpConnectionBase.h
+index 8c9f6986c..42a502eab 100644
+--- a/tdnet/td/net/HttpConnectionBase.h
++++ b/tdnet/td/net/HttpConnectionBase.h
+@@ -15,6 +15,7 @@
+ #include "td/utils/buffer.h"
+ #include "td/utils/BufferedFd.h"
+ #include "td/utils/ByteFlow.h"
++#include "td/utils/port/FileFd.h"
+ #include "td/utils/port/IPAddress.h"
+ #include "td/utils/port/SocketFd.h"
+ #include "td/utils/Status.h"
+@@ -29,6 +30,8 @@ class HttpConnectionBase : public Actor {
+   void write_next(BufferSlice buffer);
+   void write_ok();
+   void write_error(Status error);
++  // streams [offset, offset + size) of the file to the peer with backpressure and then finishes the response
++  void write_file(FileFd file, int64 offset, int64 size);
+ 
+  protected:
+   enum class State { Read, Write, Close };
+@@ -57,9 +60,16 @@ class HttpConnectionBase : public Actor {
+   unique_ptr<HttpQuery> current_query_;
+   bool close_after_write_ = false;
+ 
++  FileFd file_;
++  int64 file_offset_ = 0;
++  int64 file_left_ = 0;
++  bool is_file_active_ = false;
++
+   int32 slow_scheduler_id_{-1};
+ 
+   void live_event();
++  size_t get_pending_write_size();
++  void pump_file();
+ 
+   void start_up() final;
+   void tear_down() final;

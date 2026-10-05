@@ -571,12 +571,24 @@ void ClientManager::timeout_expired() {
 
   if (parameters_->file_ttl_seconds_ > 0 && now > next_file_gc_time_) {
     next_file_gc_time_ = now + 60.0;
-    auto files_dir = parameters_->working_directory_ + "files" + TD_DIR_SLASH;
+    const auto &working_directory = parameters_->working_directory_;
     auto ttl_nsec = static_cast<td::uint64>(parameters_->file_ttl_seconds_) * 1000000000ULL;
     auto now_nsec = static_cast<td::uint64>(td::Time::now()) * 1000000000ULL;
     td::int64 deleted_files = 0;
-    td::walk_path(files_dir, [&](td::CSlice path, td::WalkPath::Type type) {
+    td::walk_path(working_directory, [&](td::CSlice path, td::WalkPath::Type type) {
       if (type != td::WalkPath::Type::RegularFile) {
+        return td::WalkPath::Action::Continue;
+      }
+      // downloaded files are stored in <bot dir>/<type>/<file>; databases and other service files are at lower depth
+      td::Slice relative_path = path;
+      if (td::begins_with(relative_path, working_directory)) {
+        relative_path.remove_prefix(working_directory.size());
+      }
+      size_t depth = 0;
+      for (auto c : relative_path) {
+        depth += c == TD_DIR_SLASH ? 1 : 0;
+      }
+      if (depth < 2) {
         return td::WalkPath::Action::Continue;
       }
       auto r_stat = td::stat(path);

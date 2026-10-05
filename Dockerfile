@@ -3,7 +3,9 @@ FROM ubuntu:22.04 AS builder
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
+    ninja-build \
     git \
+    patch \
     libssl-dev \
     zlib1g-dev \
     gperf \
@@ -15,9 +17,12 @@ COPY . .
 
 RUN git submodule update --init --recursive
 
-RUN mkdir build && cd build && \
-    cmake .. && \
-    cmake --build . --target telegram-bot-api
+# adds HttpConnectionBase::write_file: streams a file to the peer with backpressure
+RUN patch -p1 -d td < patches/td-http-file-streaming.patch
+
+RUN cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -S . -B build && \
+    cmake --build build --target telegram-bot-api --parallel && \
+    cp build/telegram-bot-api /telegram-bot-api
 
 FROM ubuntu:22.04
 
@@ -29,7 +34,7 @@ RUN apt-get update && apt-get install -y \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/build/telegram-bot-api /usr/local/bin/telegram-bot-api
+COPY --from=builder /telegram-bot-api /usr/local/bin/telegram-bot-api
 
 WORKDIR /data
 
