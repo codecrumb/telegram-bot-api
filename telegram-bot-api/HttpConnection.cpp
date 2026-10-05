@@ -183,7 +183,7 @@ void HttpConnection::serve_file(td::Slice token, bool is_test_dc, td::Slice path
   if (token.empty() || decoded_path.empty() || decoded_path[0] == '/' || decoded_path.find('\0') != td::string::npos ||
       decoded_path.find("..") != td::string::npos || decoded_path.find("//") != td::string::npos ||
       decoded_path.find('\\') != td::string::npos || decoded_path.find('/') == td::string::npos ||
-      token.find("..") != td::Slice::npos || token.find('\\') != td::Slice::npos ||
+      token.str().find("..") != td::string::npos || token.find('\\') != td::Slice::npos ||
       token.find('\0') != td::Slice::npos) {
     return send_http_error(404, "Not Found");
   }
@@ -215,7 +215,7 @@ void HttpConnection::serve_file(td::Slice token, bool is_test_dc, td::Slice path
     return send_http_error(404, "Not Found");
   }
   auto file = r_file.move_as_ok();
-  auto r_stat = td::fstat(file.get_native_fd().fd());
+  auto r_stat = file.stat();
   if (r_stat.is_error() || !r_stat.ok().is_reg_) {
     return send_http_error(404, "Not Found");
   }
