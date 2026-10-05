@@ -3,3 +3,6 @@
 **/.DS_Store
 bin/
 vcpkg/
+# local editor and Claude Code files (including .claude/worktrees)
+.claude/
+*.code-workspace
